@@ -60,7 +60,7 @@ Structured JSON is an Ollama runtime feature, not proof that a quantized model w
 - Upstream: `Qwen/Qwen2.5-Coder-7B` at revision `0396a76181e127dfc13e5c5ec48a8cee09938b02`.
 - Ollama tag: `qwen2.5-coder:7b-base-q4_K_M`.
 - Manifest SHA-256: `bd8755145f1c58dcc43bbac9958832257a5c0c65c1bfeca859867ad71f6a9f60`.
-- Model blob: `0aa0872a8ea3451cf9b9eeea4f4048d3040a7acf29c64f95d103d6916d4911dd`, 4,683,085,412 bytes.
+- Model blob: `0aa0872a8ea3451cf9b9eeea4f4048d3040a7acf29c64f95d103d6916d4911dd`, 4,683,073,952 bytes; total manifest layers are 4,683,085,412 bytes.
 - Parameters: 7.62B; `Q4_K_M`.
 - Capabilities: the official Ollama template emits FIM prefix/suffix/middle tokens. Use `/api/generate` with `suffix`; do not use the Base model for conversation or tool use.
 - Context claim: 32K in Ollama. The publisher describes a longer YaRN configuration, which is not enabled for the baseline because it can reduce short-context quality.
@@ -68,7 +68,7 @@ Structured JSON is an Ollama runtime feature, not proof that a quantized model w
 
 ## Alternative and rejection
 
-`devstral-small-2:24b-instruct-2512-q4_K_M` is a credible Apache-2.0 coding/tool/vision alternative: 15,177,370,240 bytes, manifest `24277f07f62db8f9cb68e9dfc679ea1818a7fbac47a50eff0a701d3f645b63c8`, upstream revision `55c5b41e98c2dbd21b0c8afffc540dcfc9eb5128`. It is a benchmark alternative rather than an initial download because Qwen3.8 already covers the quality/vision role. Sources: [publisher model card](https://huggingface.co/mistralai/Devstral-Small-2-24B-Instruct-2512/tree/55c5b41e98c2dbd21b0c8afffc540dcfc9eb5128), [official Ollama artifact](https://ollama.com/library/devstral-small-2:24b-instruct-2512-q4_K_M).
+`devstral-small-2:24b-instruct-2512-q4_K_M` is a credible Apache-2.0 coding/tool/vision alternative: model blob 15,177,370,240 bytes; total manifest layers 15,177,373,679 bytes; manifest `24277f07f62db8f9cb68e9dfc679ea1818a7fbac47a50eff0a701d3f645b63c8`; upstream revision `55c5b41e98c2dbd21b0c8afffc540dcfc9eb5128`. It is a benchmark alternative rather than an initial download because Qwen3.8 already covers the quality/vision role. Sources: [publisher model card](https://huggingface.co/mistralai/Devstral-Small-2-24B-Instruct-2512/tree/55c5b41e98c2dbd21b0c8afffc540dcfc9eb5128), [official Ollama artifact](https://ollama.com/library/devstral-small-2:24b-instruct-2512-q4_K_M).
 
 `qwen3-coder-next:q4_K_M` is rejected for this host baseline. Its official Q4 artifact is 51.742 GB, too large for a 24 GB GPU and unsafe to combine with available system RAM while preserving the OS reserve and avoiding pagefile dependence.
 
