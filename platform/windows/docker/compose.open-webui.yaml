@@ -1,0 +1,43 @@
+name: local-ai-open-webui
+
+# Official Open WebUI v0.11.3 package/index digest.
+# linux/amd64 child digest: sha256:3e52522170dea0b587a976a7429f8fa6edf7be7d32cc3a1404b9087abb131f69
+services:
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:v0.11.3@sha256:751b617714b91e4cfd0186a509c72480c858e012976103b09a30dad053c36175
+    platform: linux/amd64
+    pull_policy: missing
+    restart: unless-stopped
+    init: true
+    ports:
+      - name: web
+        target: 8080
+        published: "3000"
+        host_ip: 127.0.0.1
+        protocol: tcp
+    environment:
+      OLLAMA_BASE_URL: "${OPEN_WEBUI_OLLAMA_BASE_URL:?A post-reboot constrained Ollama bridge URL is required}"
+      WEBUI_AUTH: "true"
+      WEBUI_SECRET_KEY: "${OPEN_WEBUI_SECRET_KEY:?OPEN_WEBUI_SECRET_KEY is required}"
+      ENABLE_SIGNUP: "${OPEN_WEBUI_ENABLE_SIGNUP:?OPEN_WEBUI_ENABLE_SIGNUP must be explicitly true or false}"
+      SCARF_NO_ANALYTICS: "true"
+      DO_NOT_TRACK: "true"
+      ANONYMIZED_TELEMETRY: "false"
+      HF_HOME: /app/backend/data/cache/huggingface
+    volumes:
+      - type: bind
+        source: "${OPEN_WEBUI_DATA:?OPEN_WEBUI_DATA is required}"
+        target: /app/backend/data
+        bind:
+          create_host_path: false
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    stop_grace_period: 30s
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "--show-error", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
