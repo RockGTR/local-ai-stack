@@ -1,0 +1,48 @@
+# Populated configuration and private state
+.env
+.env.*
+*.env
+!*.env.example
+*.private
+*.private.*
+private/
+local/
+
+# Application data and diagnostics
+data/
+logs/
+cache/
+caches/
+backups/
+benchmarks/raw/
+*.log
+*.db
+*.sqlite
+*.sqlite3
+
+# Models, weights, archives, and virtual disks
+models/
+*.gguf
+*.safetensors
+*.bin
+*.pt
+*.pth
+*.onnx
+*.vhd
+*.vhdx
+*.tar
+*.tar.gz
+*.zip
+*.7z
+
+# Common generated files
+.DS_Store
+Thumbs.db
+desktop.ini
+__pycache__/
+*.py[cod]
+node_modules/
+.venv/
+dist/
+build/
+coverage/

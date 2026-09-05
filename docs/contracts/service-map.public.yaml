@@ -1,0 +1,40 @@
+schema_version: 1
+status: partially-verified
+
+storage:
+  fast_root: "<FAST_STORAGE_ROOT>"
+  fast_cap_gb: 200
+  regular_root: "<REGULAR_STORAGE_ROOT>"
+  regular_cap_gb: 500
+
+network_policy:
+  backend_bind: "127.0.0.1"
+  exposure: "tailscale-serve-only"
+  funnel_enabled: false
+  public_firewall_rule: false
+  lan_firewall_rule: false
+
+services:
+  chat:
+    public_url: "<WINDOWS_CHAT_URL>"
+    private_https_port: 443
+    backend: "open-webui"
+    backend_origin: "http://127.0.0.1:3000"
+    readiness: "small authenticated UI/API interaction"
+    status: blocked
+  ollama:
+    public_origin: "<WINDOWS_OLLAMA_ORIGIN>"
+    openai_base_url: "<WINDOWS_OPENAI_BASE_URL>"
+    private_https_port: 8443
+    backend_origin: "http://127.0.0.1:11434"
+    readiness: "small inference succeeds"
+    authentication_gate: "least-privilege-tailnet-policy-or-authenticated-proxy"
+    raw_api_tailnet_exposure: false
+    status: blocked
+  dashboard:
+    public_url: "<WINDOWS_DASHBOARD_URL>"
+    private_https_port: 10000
+    backend_origin: "http://127.0.0.1:<DASHBOARD_LOOPBACK_PORT>"
+    required: false
+    readiness: "status reflects a verified inference"
+    status: deferred
