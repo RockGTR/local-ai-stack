@@ -169,6 +169,7 @@ $rootResults = foreach ($row in $rootRows) {
         ProjectedLogicalBytes      = $row.ProjectedBytes
         FileCount                  = $row.Scan.FileCount
         DirectoryCount             = $row.Scan.DirectoryCount
+        AllowedInternalSymlinkCount = $row.Scan.InternalSymlinkCount
         SkippedReparsePointCount   = $row.Scan.SkippedReparseCount
         ScanErrorCount             = $row.Scan.ErrorCount
         ScanComplete               = $row.Scan.Complete

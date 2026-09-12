@@ -100,12 +100,19 @@ Assert-LocalAiTest `
     -Code 'COMPOSE_DOCKER_PATH_FALLBACK_PRESENT'
 
 $storageText = Get-Content -LiteralPath $storagePath -Raw
+$moduleText = Get-Content -LiteralPath $modulePath -Raw
 Assert-LocalAiTest `
     -Condition ($storageText -match '\$fastCapBytes\s*=\s*200000000000') `
     -Code 'FAST_CAP_NOT_200_DECIMAL_GB'
 Assert-LocalAiTest `
     -Condition ($storageText -match '\$regularCapBytes\s*=\s*500000000000') `
     -Code 'REGULAR_CAP_NOT_500_DECIMAL_GB'
+Assert-LocalAiTest `
+    -Condition ($moduleText -match "\[IO\.Path\]::IsPathRooted" -and
+        $moduleText -match 'Test-LocalAiPathContained' -and
+        $moduleText -match '\$targetItem\.PSIsContainer' -and
+        $moduleText -match '\$ancestor\.Attributes\s+-band\s+\[IO\.FileAttributes\]::ReparsePoint') `
+    -Code 'INTERNAL_FILE_SYMLINK_CONTAINMENT_GUARDS_MISSING'
 
 $postRebootText = Get-Content -LiteralPath $postRebootPath -Raw
 Assert-LocalAiTest `
@@ -120,6 +127,9 @@ Assert-LocalAiTest `
 Assert-LocalAiTest `
     -Condition ($postRebootText -notmatch '\$wheaEvents\.Id') `
     -Code 'POST_REBOOT_EMPTY_WHEA_RESULT_UNSAFE'
+Assert-LocalAiTest `
+    -Condition ($postRebootText -match '\$vmMonitorCapabilitySatisfied\s*=\s*\(\$vmMonitorExtensions\s+-or\s+\$hypervisorPresent\)') `
+    -Code 'POST_REBOOT_ACTIVE_HYPERVISOR_CAPABILITY_FALLBACK_MISSING'
 foreach ($requiredDockerCheck in @(
     'DOCKER_DESKTOP_VERSION_MISMATCH'
     'DOCKER_WSL_DATA_ROOT_MISMATCH'

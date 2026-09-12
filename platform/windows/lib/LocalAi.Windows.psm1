@@ -91,6 +91,7 @@ function Get-LocalAiDirectoryLogicalSize {
             LogicalBytes       = [Int64]0
             FileCount          = [Int64]0
             DirectoryCount     = [Int64]0
+            InternalSymlinkCount = [Int64]0
             SkippedReparseCount = [Int64]0
             ErrorCount         = [Int64]0
             Complete           = $false
@@ -104,6 +105,7 @@ function Get-LocalAiDirectoryLogicalSize {
                 LogicalBytes        = [Int64]0
                 FileCount           = [Int64]0
                 DirectoryCount      = [Int64]0
+                InternalSymlinkCount = [Int64]0
                 SkippedReparseCount = [Int64]1
                 ErrorCount          = [Int64]0
                 Complete            = $true
@@ -115,6 +117,7 @@ function Get-LocalAiDirectoryLogicalSize {
             LogicalBytes        = [Int64]0
             FileCount           = [Int64]0
             DirectoryCount      = [Int64]0
+            InternalSymlinkCount = [Int64]0
             SkippedReparseCount = [Int64]0
             ErrorCount          = [Int64]1
             Complete            = $false
@@ -126,8 +129,13 @@ function Get-LocalAiDirectoryLogicalSize {
     [Int64]$logicalBytes = 0
     [Int64]$fileCount = 0
     [Int64]$directoryCount = 0
+    [Int64]$internalSymlinkCount = 0
     [Int64]$skippedReparseCount = 0
     [Int64]$errorCount = 0
+    $rootFullPath = [IO.Path]::GetFullPath($Path).TrimEnd([char[]]@(
+        [IO.Path]::DirectorySeparatorChar,
+        [IO.Path]::AltDirectorySeparatorChar
+    ))
 
     while ($directories.Count -gt 0) {
         $currentDirectory = $directories.Dequeue()
@@ -143,6 +151,66 @@ function Get-LocalAiDirectoryLogicalSize {
 
         foreach ($child in $children) {
             if (($child.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+                # Hugging Face caches use relative file symlinks to deduplicate
+                # snapshot files. Accept only links whose final target is an
+                # ordinary file below this same root and whose target ancestry
+                # contains no other reparse point. The target is counted when
+                # its normal directory is scanned, so counting the link again
+                # would double-count the same stored bytes.
+                $linkTypeProperty = $child.PSObject.Properties['LinkType']
+                $targetProperty = $child.PSObject.Properties['Target']
+                $linkTargets = @(if ($null -ne $targetProperty) { $targetProperty.Value })
+                $safeInternalFileSymlink = (
+                    -not $child.PSIsContainer -and
+                    $null -ne $linkTypeProperty -and
+                    [string]$linkTypeProperty.Value -eq 'SymbolicLink' -and
+                    $linkTargets.Count -eq 1 -and
+                    -not [string]::IsNullOrWhiteSpace([string]$linkTargets[0]) -and
+                    -not [IO.Path]::IsPathRooted([string]$linkTargets[0])
+                )
+
+                if ($safeInternalFileSymlink) {
+                    try {
+                        $targetFullPath = [IO.Path]::GetFullPath((
+                            Join-Path $child.DirectoryName ([string]$linkTargets[0])
+                        ))
+                        if (-not (Test-LocalAiPathContained `
+                            -ParentPath $rootFullPath `
+                            -CandidatePath $targetFullPath)) {
+                            $safeInternalFileSymlink = $false
+                        }
+                        else {
+                            $targetItem = Get-Item -LiteralPath $targetFullPath -Force -ErrorAction Stop
+                            if ($targetItem.PSIsContainer -or
+                                ($targetItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+                                $safeInternalFileSymlink = $false
+                            }
+                            else {
+                                $ancestor = $targetItem.Directory
+                                while ($null -ne $ancestor -and
+                                    -not $ancestor.FullName.Equals($rootFullPath, [StringComparison]::OrdinalIgnoreCase)) {
+                                    if (($ancestor.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+                                        $safeInternalFileSymlink = $false
+                                        break
+                                    }
+                                    $ancestor = $ancestor.Parent
+                                }
+                                if ($null -eq $ancestor) {
+                                    $safeInternalFileSymlink = $false
+                                }
+                            }
+                        }
+                    }
+                    catch {
+                        $safeInternalFileSymlink = $false
+                    }
+                }
+
+                if ($safeInternalFileSymlink) {
+                    $internalSymlinkCount++
+                    continue
+                }
+
                 $skippedReparseCount++
                 continue
             }
@@ -170,6 +238,7 @@ function Get-LocalAiDirectoryLogicalSize {
         LogicalBytes        = $logicalBytes
         FileCount           = $fileCount
         DirectoryCount      = $directoryCount
+        InternalSymlinkCount = $internalSymlinkCount
         SkippedReparseCount = $skippedReparseCount
         ErrorCount          = $errorCount
         Complete            = ($errorCount -eq 0)

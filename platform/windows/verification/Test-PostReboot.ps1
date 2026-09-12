@@ -62,11 +62,11 @@ $vmMonitorExtensions = (
     $processors.Count -gt 0 -and
     @($processors | Where-Object { $_.VMMonitorModeExtensions -ne $true }).Count -eq 0
 )
-if (-not $virtualizationFirmwareEnabled) { $violations.Add('FIRMWARE_VIRTUALIZATION_DISABLED') }
-if (-not $vmMonitorExtensions) { $violations.Add('VM_MONITOR_MODE_EXTENSIONS_UNAVAILABLE') }
-
 $computerSystem = Get-CimInstance Win32_ComputerSystem -ErrorAction Stop
 $hypervisorPresent = ($computerSystem.HypervisorPresent -eq $true)
+$vmMonitorCapabilitySatisfied = ($vmMonitorExtensions -or $hypervisorPresent)
+if (-not $virtualizationFirmwareEnabled) { $violations.Add('FIRMWARE_VIRTUALIZATION_DISABLED') }
+if (-not $vmMonitorCapabilitySatisfied) { $violations.Add('VM_MONITOR_MODE_EXTENSIONS_UNAVAILABLE') }
 if (-not $hypervisorPresent) { $violations.Add('WINDOWS_HYPERVISOR_NOT_PRESENT') }
 
 $memoryModules = @(Get-CimInstance Win32_PhysicalMemory -ErrorAction Stop)
@@ -338,7 +338,8 @@ $report = [pscustomobject]@{
     NoRebootActionTaken = $true
     Firmware = [pscustomobject]@{
         VirtualizationEnabled = $virtualizationFirmwareEnabled
-        VmMonitorExtensionsAvailable = $vmMonitorExtensions
+        VmMonitorExtensionsReported = $vmMonitorExtensions
+        VmMonitorCapabilitySatisfied = $vmMonitorCapabilitySatisfied
         HypervisorPresent = $hypervisorPresent
     }
     Memory = [pscustomobject]@{

@@ -53,7 +53,7 @@ Run preflight before every download, extraction, image pull, conversion, or larg
     -RegularExpectedTempBytes 0
 ```
 
-Caps use decimal bytes: 200,000,000,000 fast and 500,000,000,000 regular. The operating-system volume must additionally retain the larger of 50 GB or 15% of its capacity. Reparse points block a pass because following them could touch unrelated data and skipping them could undercount usage. Private JSON reports are accepted only below the regular root and outside this repository.
+Caps use decimal bytes: 200,000,000,000 fast and 500,000,000,000 regular. The operating-system volume must additionally retain the larger of 50 GB or 15% of its capacity. External, broken, chained, and directory reparse points block a pass because following them could touch unrelated data and skipping them could undercount usage. A relative file symlink is allowed only when its ordinary-file target and every target ancestor remain inside the same managed root; the target bytes are counted through their normal directory to avoid duplication. Private JSON reports are accepted only below the regular root and outside this repository.
 
 ## Ollama
 
