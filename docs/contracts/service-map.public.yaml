@@ -21,7 +21,7 @@ services:
     backend: "open-webui"
     backend_origin: "http://127.0.0.1:3000"
     readiness: "small authenticated UI/API interaction"
-    status: blocked
+    status: ready
   ollama:
     public_origin: "<WINDOWS_OLLAMA_ORIGIN>"
     openai_base_url: "<WINDOWS_OPENAI_BASE_URL>"

@@ -3,7 +3,7 @@
 Last updated: 2026-09-12
 Owner: Windows
 Lifecycle: `POST_REBOOT_VERIFIED`
-Overall state: `LOCAL_SERVICES_VERIFIED`; remote publication and the first Open WebUI administrator bootstrap remain intentionally pending.
+Overall state: `PRIVATE_CHAT_READY`; the authenticated browser UI is available through private HTTPS, while raw model APIs remain intentionally unexposed.
 
 ## Sanitized verified baseline
 
@@ -14,7 +14,7 @@ Overall state: `LOCAL_SERVICES_VERIFIED`; remote publication and the first Open 
 - CPU virtualization is enabled in firmware, the Windows hypervisor is present, and the WSL 2 Docker Linux engine is operational.
 - The pagefile is already Windows-managed on the operating-system drive and is not scheduled to move.
 - The old Docker engine data was purged under the explicit Docker-only authorization. No unrelated files, repositories, credentials, or WSL distributions were deleted.
-- Tailscale 1.102.3 is connected and Funnel is disabled. Private device and network values are intentionally omitted.
+- Tailscale 1.102.3 is connected, its private HTTPS Serve route is verified for the authenticated browser UI, and Funnel is disabled. Private device and network values are intentionally omitted.
 - The native runtime and Docker-backed browser UI are verified locally. Both listeners remain restricted to Windows loopback.
 
 ## Completed
@@ -24,8 +24,9 @@ Overall state: `LOCAL_SERVICES_VERIFIED`; remote publication and the first Open 
 - Verified Docker client and Linux engine 29.7.2, overlay storage, and a clean initial inventory. Docker created both managed VHDX files below the approved regular-storage data root, with no active legacy Docker VHDX under the vendor local-application-data directory.
 - Pulled the pinned Open WebUI 0.11.3 image, verified its immutable digest and Linux/amd64 platform, and started it from the public Compose definition with persistent data below managed regular storage.
 - Verified the Open WebUI container as healthy, its host health endpoint as HTTP 200, an actual container-to-native-Ollama inference returning the requested sentinel, and a host OpenAI-compatible inference returning the requested sentinel.
+- Completed the first-administrator bootstrap locally, disabled further signup in private configuration, recreated the container, and verified that the single administrator and authenticated chat records persisted. No identity or message content was inspected.
 - Verified that Ollama and Open WebUI listen only on `127.0.0.1`; the smoke model is fully GPU-resident and no new WHEA event appeared during inference.
-- Confirmed Tailscale is connected, Serve is available with no configured route, and Funnel is not configured. No surface has been published.
+- Enabled Tailscale Serve and verified the private HTTPS path at HTTP 200. The route targets only loopback Open WebUI, does not expose the Ollama port, and has Funnel disabled.
 - Updated the storage-cap scanner to allow only relative file symlinks whose ordinary-file targets and full target ancestry remain inside the same managed root. The Open WebUI embedding cache has 30 such deduplication links; it has zero unsafe reparse points, and both hard-cap checks pass.
 - Read-only hardware, storage, pagefile, runtime, and network audit.
 - Confirmed that the two storage roots reside on different physical devices.
@@ -61,7 +62,7 @@ These are deployment-smoke measurements for a small model, not production coding
 | Root class | Current stack use | Hard cap | Maximum additional use now |
 |---|---:|---:|---:|
 | Fast | 0.523 GB | 200 GB | 199.477 GB |
-| Regular | 19.123 GB | 500 GB | 480.877 GB |
+| Regular | 19.124 GB | 500 GB | 480.876 GB |
 
 The maximum-additional figures already apply the live cap and OS-volume reserve calculation. The regular-root scan includes Docker and Open WebUI data and passed with no unsafe reparse point. Funnel remains disabled. The raw Ollama API will not be served merely on the strength of tailnet membership: a least-privilege grant/ACL or authenticated proxy must first protect pull, delete, and resource-consuming operations.
 
@@ -73,8 +74,6 @@ The maximum-additional figures already apply the live cap and OS-volume reserve 
 
 ## Remaining work
 
-- Create the first Open WebUI administrator through the local loopback UI, set signup back to false in private configuration, recreate the container, and verify that registration is closed.
-- Publish only the authenticated browser UI through a least-privilege private Tailscale Serve route. Keep Funnel disabled and the raw Ollama API unexposed.
 - Remove the Docker-only socket-metadata quarantines after a longer stable operating interval; they are deliberately retained for recoverability at this checkpoint.
 - Rerun the elevated verifier and complete a sustained memory-stability workload with a post-workload WHEA query.
 - Download any model larger than 5 GB; each requires a separate exact model proposal and approval.
@@ -85,13 +84,13 @@ The maximum-additional figures already apply the live cap and OS-volume reserve 
 
 | Surface | State | Notes |
 |---|---|---|
-| Browser chat | `LOCAL_HEALTHY` | Loopback health and inference pass; first administrator bootstrap is pending |
+| Browser chat | `READY` | Administrator bootstrap is closed; authenticated chat, private HTTPS, and backend inference checkpoints pass |
 | Native model API | `VERIFIED` | Local loopback smoke inference passed; private HTTPS route is not active |
 | OpenAI-compatible API | `VERIFIED` | Local loopback chat and model discovery passed |
 | Status interface | `DEFERRED` | Build only if existing UI is insufficient |
-| Tailscale Serve | `UNCONFIGURED` | CLI support is available, no route is applied, and Funnel remains disabled |
+| Tailscale Serve | `READY` | Private HTTPS publishes only authenticated browser chat; raw Ollama is unexposed and Funnel remains disabled |
 
 ## Open coordination items
 
-- Continue Open WebUI authentication closure and private-route work under Issue #2. Issue #1 is complete; explicit production-model selection remains open under Issue #3.
+- Windows host work remains coordinated under Issue #2; the shared chat-readiness promotion is tracked in Issue #4. Explicit production-model selection remains open under Issue #3.
 - Actual URLs, host identity, and populated storage roots remain private.
