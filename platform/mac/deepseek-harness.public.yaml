@@ -1,0 +1,39 @@
+schema_version: 1
+component: deepseek-harness
+status: verified
+
+package:
+  registry: npm
+  name: "@deepseek-ai/dsh"
+  version: "0.1.5-rc.2"
+  npm_integrity: "sha512-8Xc8hCQHcIWRmTCVU/xZdp6/qMsWMeAd2ObChKDEsfhUPJFXx6H0lgeb1DxUMD86HZrrVN+1bCvn1ppjZ/fOxw=="
+  source: "https://github.com/deepseek-ai/deepseek-harness/tree/dsh-v0.1.5-rc.2"
+  license: MIT
+  release_channel: developer-preview
+
+runtime:
+  node_formula: "node@22"
+  node_version: "22.23.1"
+  install_scope: user
+  global_shell_change: false
+  default_bind: "127.0.0.1"
+  default_port: 3080
+  automatic_start: false
+
+verification:
+  npm_registry_signatures: passed
+  npm_attestations: passed
+  cli_version: passed
+  loopback_listener: passed
+  local_ui_token_redirect: passed
+  clean_shutdown: passed
+  model_inference: blocked
+
+provider:
+  credentials_configured: false
+  windows_openai_compatible_api: blocked
+  reason: "Await an authenticated proxy or verified least-privilege policy."
+
+models:
+  downloaded_to_mac: false
+  windows_production_selection: pending

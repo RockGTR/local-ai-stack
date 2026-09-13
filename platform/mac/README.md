@@ -43,3 +43,19 @@ The test never calls the Ollama port, `/v1/models`, or an inference endpoint. Au
 - A private URL and existing Open WebUI account supplied out of band.
 
 No local model runtime or model download is required for browser-only use.
+
+## DeepSeek Harness
+
+DeepSeek Harness is installed separately as an experimental local agent UI. The pinned deployment record is `deepseek-harness.public.yaml`; start it with:
+
+```sh
+platform/mac/Start-DeepSeekHarness.sh
+```
+
+The launcher uses the user-local versioned npm installation, the compatible Homebrew `node@22` runtime, a dedicated empty workspace, a private `DSH_HOME`, and a loopback-only listener. It does not alter the global shell environment or configure automatic startup. Pass `--no-open` to suppress its browser launch or `--port <port>` to choose another loopback port. A non-loopback `--host` override is rejected.
+
+The installed Harness is developer-preview software that can execute model-generated commands and access files explicitly made available to it. Add only workspaces you intend it to inspect, review plugins before enabling them, and retain approval prompts.
+
+No model provider is configured. The Windows OpenAI-compatible endpoint remains blocked by the shared contract, and API credentials must never be pasted into Git or chat. When a protected provider is available, configure it through Harness **Settings → Models**; Harness stores credentials under the private `DSH_HOME`.
+
+Harness is a client and agent runtime, not an Ollama model store. Production models belong on the Windows GPU host. Select an exact option in Issue #3, rerun the Windows storage preflight, and pull it from Windows under the managed storage contract. Do not download model weights to this Mac while local disk headroom remains constrained.
