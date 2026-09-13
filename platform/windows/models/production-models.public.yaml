@@ -1,0 +1,67 @@
+schema_version: 1
+updated: 2026-09-12
+host_class:
+  gpu: NVIDIA RTX 3090 24GB
+  system_ram: 32GB DDR4-3600
+runtime:
+  name: Ollama
+  version: 0.33.3
+  bind: 127.0.0.1:11434
+  max_loaded_models: 1
+  parallel_requests: 1
+  keep_alive: 5m
+  flash_attention: true
+  kv_cache_type: q8_0
+  global_context_override: false
+models:
+  - role: general-coding-tools-vision
+    identifier: qwen3.8:27b-q4_K_M
+    runtime_manifest_sha256: 25b843619e944cd0ae6069f94ff4e5e26a16e109ccbc0a66a0f05979ed70098e
+    model_blob_sha256: f5f1dd8920d417aac2718b0bda3403da274301efdd6760b4f0f4b864ff2ad57d
+    projector_blob_sha256: ac3714bfdddeca31351f2752bf1a63f266f4df87c0b68c895e44945ca704448e
+    stored_payload_bytes: 17741872132
+    upstream: Qwen/Qwen3.8-27B
+    upstream_revision: 1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0
+    license: Apache-2.0
+    parameters: 27.3B
+    quantization: Q4_K_M
+    claimed_context_tokens: 262144
+    verified_gpu_only_context_tokens: 16384
+    verified_ram_offload_context_tokens: 16384
+    capabilities: [completion, vision, tools, thinking, structured-output]
+    ready: true
+  - role: fill-in-the-middle-autocomplete
+    identifier: qwen2.5-coder:14b-base-q4_K_M
+    runtime_manifest_sha256: 8221e52a9c29aef9cfa2419ef73618c2a98ba3ab927effab55957390ed5039a9
+    model_blob_sha256: 8000ab3742735e7b8ef5d525479fe70c602880b1254a9961278bf0caab7f9c20
+    stored_payload_bytes: 8988122498
+    upstream: Qwen/Qwen2.5-Coder-14B
+    upstream_revision: f2ad5164aade432d6d56c24bb71589184d5d613d
+    license: Apache-2.0
+    parameters: 14.8B
+    quantization: Q4_K_M
+    claimed_context_tokens: 32768
+    verified_context_tokens: 8192
+    capabilities: [completion, fill-in-the-middle]
+    ready: true
+  - role: abliterated-chat-tools-vision
+    identifier: hf.co/windowsxp811203/Qwen3.8-27B-Abliterated-GGUF:Q4_K_M
+    runtime_manifest_sha256: 2d77f4ab232eb6ea168fc6800c2775e55ed406d7ba3df702f3e0c61380e9b9b0
+    model_blob_sha256: a57423a5a99a3c100b3af93965909b35e563324b7b7b1ea8f0ac2008a11e0412
+    projector_blob_sha256: b73b89b52c21e90468f0c61d1190cb22c3f229f9ddd2792e9eafd55302fabdd4
+    stored_payload_bytes: 17738322817
+    upstream: windowsxp811203/Qwen3.8-27B-Abliterated-GGUF
+    upstream_revision: efb07baa690a1bc7beb53ee067b4b57c7025b5e7
+    base_model_revision: 40519381cd229c0bd9a54470122e59d592ed534b
+    license: Apache-2.0
+    license_evidence: upstream model card; no license layer is bundled in the Ollama manifest
+    parameters: 27.3B
+    quantization: Q4_K_M
+    claimed_context_tokens: 262144
+    verified_gpu_only_context_tokens: 16384
+    capabilities: [completion, vision, tools, thinking, structured-output]
+    ready: true
+notes:
+  - All three downloads completed runtime SHA-256 verification before readiness tests.
+  - Abliteration describes the upstream variant; it is not a guarantee of behavior or correctness.
+  - Verified context values are tested production ceilings, not claims about the absolute model limit.

@@ -14,6 +14,9 @@ These assets are sanitized and contain no machine identity, populated storage pa
 | `ollama/Set-OllamaRuntimeEnvironment.ps1` | Applies conservative Ollama settings at process or user scope | Yes, explicitly scoped |
 | `ollama/Start-Ollama.ps1` | Starts the managed native binary on loopback and verifies its process, version, and API | Yes |
 | `ollama/Test-OllamaRuntime.ps1` | Read-only listener, process-path, pinned-version, and API health check | Only if a private report is requested |
+| `ollama/Measure-OllamaInference.ps1` | Repeatable performance and residency benchmark with RAM/pagefile guardrails | Only if a private report is requested |
+| `models/production-models.public.yaml` | Exact installed model identifiers, immutable hashes, sources, licenses, and verified capabilities | No |
+| `benchmarks/rtx3090-production-models.md` | Sanitized RTX 3090 benchmark results and production recommendations | No |
 | `docker/compose.open-webui.yaml` | Loopback-only Open WebUI service with a bind-mounted regular-storage data directory | No by itself |
 | `docker/Test-OpenWebUiCompose.ps1` | Checks the pin, bind policy, secret, signup state, and optional Compose rendering | No |
 | `verification/Test-PostReboot.ps1` | Checks virtualization, memory speed, WSL, WHEA, NVIDIA, Docker, and storage after the user reboot | Only if a private report is requested |
@@ -61,7 +64,7 @@ Caps use decimal bytes: 200,000,000,000 fast and 500,000,000,000 regular. The op
 
 The installed `0.33.3` help confirms `OLLAMA_NO_CLOUD`; it does not advertise `OLLAMA_NOHISTORY` or `OLLAMA_TMPDIR`, so those unsupported variables are omitted. The launcher redirects `TEMP` and `TMP` only long enough for the spawned Ollama process to inherit fast scratch, then restores its own values. User- and machine-level generic temporary-directory settings are never changed.
 
-Flash attention and quantized KV cache remain disabled in the example. Enable them only after the installed runtime and selected model pass compatibility and quality checks. A successful runtime health check still reports `Ready = false`; readiness requires a small inference.
+Flash attention and `q8_0` KV cache are enabled in the example because the installed production models passed inference, vision, tool-call, schema, residency, and pagefile checks with that combination. The tested production ceiling for the Qwen3.8 27B models is 16K; do not infer the advertised 262K limit is usable. A successful runtime health check still reports `Ready = false`; readiness requires a small inference.
 
 ## Open WebUI
 

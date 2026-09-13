@@ -11,6 +11,9 @@ $composePath = Join-Path $platformRoot 'docker\compose.open-webui.yaml'
 $composeValidatorPath = Join-Path $platformRoot 'docker\Test-OpenWebUiCompose.ps1'
 $storagePath = Join-Path $platformRoot 'storage\Test-StoragePreflight.ps1'
 $postRebootPath = Join-Path $platformRoot 'verification\Test-PostReboot.ps1'
+$ollamaBenchmarkPath = Join-Path $platformRoot 'ollama\Measure-OllamaInference.ps1'
+$productionModelManifestPath = Join-Path $platformRoot 'models\production-models.public.yaml'
+$productionBenchmarkPath = Join-Path $platformRoot 'benchmarks\rtx3090-production-models.md'
 
 $failures = [Collections.Generic.List[string]]::new()
 [Int32]$script:checkCount = 0
@@ -56,6 +59,9 @@ Assert-LocalAiTest `
 Assert-LocalAiTest `
     -Condition ($example.OLLAMA_EXPECTED_VERSION -eq '0.33.3') `
     -Code 'OLLAMA_VERSION_PIN_MISMATCH'
+Assert-LocalAiTest `
+    -Condition ($example.OLLAMA_FLASH_ATTENTION -eq 'true' -and $example.OLLAMA_KV_CACHE_TYPE -eq 'q8_0') `
+    -Code 'OLLAMA_VERIFIED_KV_CONFIGURATION_MISMATCH'
 Assert-LocalAiTest `
     -Condition ($example.TAILSCALE_FUNNEL_ENABLED -eq 'false') `
     -Code 'FUNNEL_NOT_DISABLED_IN_EXAMPLE'
@@ -140,6 +146,39 @@ foreach ($requiredDockerCheck in @(
         -Condition ($postRebootText.Contains($requiredDockerCheck)) `
         -Code "POST_REBOOT_CHECK_MISSING_$requiredDockerCheck"
 }
+
+$ollamaBenchmarkText = Get-Content -LiteralPath $ollamaBenchmarkPath -Raw
+Assert-LocalAiTest `
+    -Condition ($ollamaBenchmarkText -match '\$baseUri\s*=\s*\[Uri\]''http://127\.0\.0\.1:11434/''') `
+    -Code 'OLLAMA_BENCHMARK_NOT_LOOPBACK_ONLY'
+Assert-LocalAiTest `
+    -Condition ($ollamaBenchmarkText -match '\$MinimumAvailableRamBytes\s*=\s*8000000000') `
+    -Code 'OLLAMA_BENCHMARK_RAM_FLOOR_MISSING'
+Assert-LocalAiTest `
+    -Condition ($ollamaBenchmarkText -match 'FullyGpuResident' -and
+        $ollamaBenchmarkText -match 'RequireFullGpu') `
+    -Code 'OLLAMA_BENCHMARK_RESIDENCY_GUARD_MISSING'
+Assert-LocalAiTest `
+    -Condition ($ollamaBenchmarkText -match '\$NumGpuLayers' -and
+        $ollamaBenchmarkText -match 'options\.num_gpu') `
+    -Code 'OLLAMA_BENCHMARK_OFFLOAD_CONTROL_MISSING'
+
+$productionModelManifestText = Get-Content -LiteralPath $productionModelManifestPath -Raw
+foreach ($productionIdentifier in @(
+    'qwen3.8:27b-q4_K_M'
+    'qwen2.5-coder:14b-base-q4_K_M'
+    'hf.co/windowsxp811203/Qwen3.8-27B-Abliterated-GGUF:Q4_K_M'
+)) {
+    Assert-LocalAiTest `
+        -Condition ($productionModelManifestText.Contains("identifier: $productionIdentifier")) `
+        -Code "PRODUCTION_MODEL_IDENTIFIER_MISSING_$productionIdentifier"
+}
+Assert-LocalAiTest `
+    -Condition ($productionModelManifestText -match 'verified_gpu_only_context_tokens:\s+16384') `
+    -Code 'QWEN38_VERIFIED_CONTEXT_MISSING'
+Assert-LocalAiTest `
+    -Condition (Test-Path -LiteralPath $productionBenchmarkPath -PathType Leaf) `
+    -Code 'PRODUCTION_BENCHMARK_SUMMARY_MISSING'
 
 $runtimeEnvironment = New-LocalAiOllamaEnvironment -FastStorageRoot $platformRoot
 Assert-LocalAiTest `

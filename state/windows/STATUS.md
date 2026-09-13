@@ -3,7 +3,7 @@
 Last updated: 2026-09-12
 Owner: Windows
 Lifecycle: `POST_REBOOT_VERIFIED`
-Overall state: `PRIVATE_CHAT_READY`; the authenticated browser UI is available through private HTTPS, while raw model APIs remain intentionally unexposed.
+Overall state: `PRODUCTION_MODELS_READY`; the three approved models are installed and tested, and the authenticated browser UI is available through private HTTPS. Raw model APIs remain intentionally unexposed.
 
 ## Sanitized verified baseline
 
@@ -16,6 +16,7 @@ Overall state: `PRIVATE_CHAT_READY`; the authenticated browser UI is available t
 - The old Docker engine data was purged under the explicit Docker-only authorization. No unrelated files, repositories, credentials, or WSL distributions were deleted.
 - Tailscale 1.102.3 is connected, its private HTTPS Serve route is verified for the authenticated browser UI, and Funnel is disabled. Private device and network values are intentionally omitted.
 - The native runtime and Docker-backed browser UI are verified locally. Both listeners remain restricted to Windows loopback.
+- The installed production set is `qwen3.8:27b-q4_K_M`, `qwen2.5-coder:14b-base-q4_K_M`, and `hf.co/windowsxp811203/Qwen3.8-27B-Abliterated-GGUF:Q4_K_M`.
 
 ## Completed
 
@@ -28,6 +29,12 @@ Overall state: `PRIVATE_CHAT_READY`; the authenticated browser UI is available t
 - Verified that Ollama and Open WebUI listen only on `127.0.0.1`; the smoke model is fully GPU-resident and no new WHEA event appeared during inference.
 - Enabled Tailscale Serve and verified the private HTTPS path at HTTP 200. The route targets only loopback Open WebUI, does not expose the Ollama port, and has Funnel disabled.
 - Updated the storage-cap scanner to allow only relative file symlinks whose ordinary-file targets and full target ancestry remain inside the same managed root. The Open WebUI embedding cache has 30 such deduplication links; it has zero unsafe reparse points, and both hard-cap checks pass.
+- Pulled all three approved production models after a passing storage preflight. Every pull completed runtime SHA-256 verification, and exact public identifiers, manifest hashes, upstream revisions, licenses, quantization, sizes, and capabilities are recorded in `platform/windows/models/production-models.public.yaml`.
+- Verified the general and abliterated 27B Qwen3.8 builds for chat, vision, native tool calling, JSON-schema output, and OpenAI-compatible chat. Verified the 14B Base coder for fill-in-the-middle and legacy OpenAI completions.
+- Verified the running Open WebUI container can discover all three production identifiers through the existing internal host bridge while Ollama remains loopback-only.
+- Benchmarked cold/warm inference, real 8K and 16K context fills, full GPU residency, controlled 48-of-65-layer RAM offload, Docker coexistence, RAM headroom, pagefile behavior, and thermal/event-log health. The repeatable harness and sanitized results are published under `platform/windows/ollama` and `platform/windows/benchmarks`.
+- Established 16K as the tested production-safe ceiling for both 27B models on Ollama 0.33.3. Both 32K attempts faulted their isolated model runner with a CUDA illegal-memory-access error; Ollama recovered, Docker/Open WebUI stayed healthy, and no WHEA or display-driver event appeared.
+- Recovered Docker Desktop from recurring stale Unix-socket metadata without a factory reset. Only Docker runtime socket directories were moved aside intact; the engine, existing container, persistent Open WebUI data, and authenticated state all returned healthy.
 - Read-only hardware, storage, pagefile, runtime, and network audit.
 - Confirmed that the two storage roots reside on different physical devices.
 - Created the approved managed directory layout and passed cap, reserve, containment, and separate-disk preflight checks.
@@ -40,7 +47,7 @@ Overall state: `PRIVATE_CHAT_READY`; the authenticated browser UI is available t
 - Installed GitHub CLI 2.100.0 under the managed regular-storage application root.
 - Replaced the vendor Ollama logon shortcut with a managed launcher; the original shortcut is backed up privately. The native runtime was already healthy at the post-reboot check; full-stack persistence remains a future verification item.
 - Created coordination Issues #1 (`[Shared]`), #2 (`[Windows]`), and #3 (production-model selection).
-- Published immutable model-candidate records and exact download choices; no production model has been selected or downloaded.
+- Published immutable model-candidate records, the final installed model manifest, and measured production recommendations.
 - Firmware-change and rollback procedure documented in `docs/runbooks/windows-reboot.md`.
 
 ## Verified native-runtime smoke result
@@ -57,14 +64,24 @@ Overall state: `PRIVATE_CHAT_READY`; the authenticated browser UI is available t
 
 These are deployment-smoke measurements for a small model, not production coding-quality or maximum-context benchmarks. The OpenAI-compatible short-answer check used `reasoning_effort: "none"`; otherwise this reasoning model can consume a small completion budget without returning visible content.
 
-## Storage usage at the post-reboot local-service checkpoint
+## Production model benchmark summary
+
+| Role | Model | Recommended context | Warm generation | Result |
+|---|---|---:|---:|---|
+| General coding, tools, vision | `qwen3.8:27b-q4_K_M` | 8K routine, 16K ceiling | 41.0 tok/s | `READY` |
+| FIM autocomplete | `qwen2.5-coder:14b-base-q4_K_M` | 8K tested | 68.3 tok/s | `READY` |
+| Abliterated chat, tools, vision | `hf.co/windowsxp811203/Qwen3.8-27B-Abliterated-GGUF:Q4_K_M` | 8K routine, 16K ceiling | 38.8 tok/s | `READY` |
+
+The standard Qwen3.8 first uncached model read took 30.06 seconds; later OS-cached cold loads were 11.35-12.44 seconds. Full-GPU 16K remained pagefile-independent. Controlled offload passed at 16K but slowed warm generation to 6.4 tok/s at 8K and did not establish a higher safe context, so it is not the default. See `platform/windows/benchmarks/rtx3090-production-models.md` for the full sanitized matrix.
+
+## Storage usage after production-model installation
 
 | Root class | Current stack use | Hard cap | Maximum additional use now |
 |---|---:|---:|---:|
-| Fast | 0.523 GB | 200 GB | 199.477 GB |
-| Regular | 19.124 GB | 500 GB | 480.876 GB |
+| Fast | 44.991 GB | 200 GB | 100.093 GB |
+| Regular | 26.327 GB | 500 GB | 473.673 GB |
 
-The maximum-additional figures already apply the live cap and OS-volume reserve calculation. The regular-root scan includes Docker and Open WebUI data and passed with no unsafe reparse point. Funnel remains disabled. The raw Ollama API will not be served merely on the strength of tailnet membership: a least-privilege grant/ACL or authenticated proxy must first protect pull, delete, and resource-consuming operations.
+The maximum-additional figures already apply both the hard cap and the live volume reserve calculation, so the operating-system reserve—not the 200 GB cap—is currently the tighter fast-storage limit. The regular-root scan includes Docker and Open WebUI data and passed with no unsafe reparse point. Funnel remains disabled. The raw Ollama API will not be served merely on the strength of tailnet membership: a least-privilege grant/ACL or authenticated proxy must first protect pull, delete, and resource-consuming operations.
 
 ## Verification qualification
 
@@ -76,8 +93,7 @@ The maximum-additional figures already apply the live cap and OS-volume reserve 
 
 - Remove the Docker-only socket-metadata quarantines after a longer stable operating interval; they are deliberately retained for recoverability at this checkpoint.
 - Rerun the elevated verifier and complete a sustained memory-stability workload with a post-workload WHEA query.
-- Download any model larger than 5 GB; each requires a separate exact model proposal and approval.
-- Run GPU-only and RAM-offload context benchmarks.
+- Retest 32K only after an Ollama/llama.cpp release explicitly addresses the Qwen3.8 CUDA hybrid-model fault; do not raise the public ceiling based on the advertised context claim.
 - Verify full service persistence at a future user-controlled reboot; do not reboot merely for this check.
 
 ## Public service readiness
@@ -92,5 +108,5 @@ The maximum-additional figures already apply the live cap and OS-volume reserve 
 
 ## Open coordination items
 
-- Windows host work remains coordinated under Issue #2; the shared chat-readiness promotion is tracked in Issue #4. Explicit production-model selection remains open under Issue #3.
+- Windows host work remains coordinated under Issue #2; the shared chat-readiness promotion is tracked in Issue #4. Production-model selection and benchmark evidence are tracked under Issue #3.
 - Actual URLs, host identity, and populated storage roots remain private.
