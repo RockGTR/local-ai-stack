@@ -11,6 +11,7 @@ Stage: `LOCAL_HARNESS_VERIFIED`
 - Confirmed private HTTPS reaches the remote peer, returns HTTP 200, and validates its certificate normally with TLS 1.3.
 - Confirmed the route reports Open WebUI 0.11.3 with public signup disabled and the existing-account login form enabled.
 - Added placeholder-only Mac client configuration and reusable route verification/opening scripts under `platform/mac/**`.
+- Added a Mac launcher for the authenticated Open WebUI administrator model page. It uses only the existing private browser URL and does not call raw Ollama or start a download.
 - Stored the populated URL only in a permission-restricted private file outside Git; no global model-provider variables were changed.
 - Installed the official DeepSeek Harness 0.1.5-rc.2 npm package in user scope, verified registry signatures and attestations, and booted its Web UI on Mac loopback.
 - Used an existing compatible Node 22 runtime explicitly; the broken default Node installation and shell initialization remain unchanged.
@@ -22,6 +23,8 @@ Stage: `LOCAL_HARNESS_VERIFIED`
 - Harness has no configured provider or credential. It was stopped cleanly after local UI verification and has no automatic startup.
 - No Ollama runtime or model was installed on the Mac.
 - The Windows smoke fixture is not treated as a selected production model.
+- No model-management operation was attempted. Any pull over 5 GB still requires an exact approved model choice and a fresh Windows storage preflight.
+- The latest Mac check reached the Windows Tailscale peer but the private HTTPS route returned HTTP 502. The Mac did not repeat the poll; verify Open WebUI and its loopback Serve target on Windows before asking the Mac to retry.
 
 ## Next actions
 
@@ -29,5 +32,6 @@ Stage: `LOCAL_HARNESS_VERIFIED`
 2. Windows/shared: keep the raw Ollama API unexposed. Publish a new contract and handoff only after an authenticated proxy or least-privilege policy is implemented and tested.
 3. Mac: keep Harness provider configuration blocked until that protected API surface is available. Do not point it at the browser-chat URL or the unexposed raw Ollama listener.
 4. Mac: keep model weights on the Windows GPU host. An exact production download remains pending under Issue #3.
+5. User: after approving an exact model and completing the Windows preflight, run `platform/mac/Open-WindowsModelManager.sh`, sign in as the existing administrator, and initiate the pull from Open WebUI.
 
-Tracked in Issues #5 and #6. All machine identity, tailnet details, populated URLs, credentials, paths, generated Harness state, and raw diagnostics remain private.
+Tracked in Issues #5, #6, and #7. All machine identity, tailnet details, populated URLs, credentials, paths, generated Harness state, and raw diagnostics remain private.

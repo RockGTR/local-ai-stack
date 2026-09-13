@@ -36,6 +36,25 @@ platform/mac/Open-PrivateChat.sh
 
 The test never calls the Ollama port, `/v1/models`, or an inference endpoint. Authentication and a small chat remain an interactive browser check.
 
+## Download a model onto Windows from this Mac
+
+Open the Windows-hosted model manager through the same private HTTPS route:
+
+```sh
+platform/mac/Open-WindowsModelManager.sh
+```
+
+The launcher first runs the non-authenticated private-route checks, then opens Open WebUI at **Admin Panel → Settings → Models**. Sign in with the existing administrator account, choose **Manage**, enter an exact Ollama model tag under **Pull a model from Ollama.com**, and select **Pull Model**. Open WebUI performs the pull from the Windows host to its loopback-only Ollama service; the model weights are not downloaded to the Mac.
+
+This is an authenticated browser control path, not a raw model API. The launcher stores no credential and starts no download itself. Before selecting **Pull Model**:
+
+- choose an exact model from `docs/model-candidates.md` or coordinate a new candidate in Issue #3;
+- for any download over 5 GB, obtain explicit approval and rerun the Windows storage preflight with the exact payload and temporary overhead;
+- keep the browser open to observe progress, and verify the resulting model on Windows before treating it as ready; and
+- do not use the adjacent delete control unless model removal is explicitly intended and authorized.
+
+Open WebUI 0.11.3 restricts its pull, create, copy, download, upload, and delete handlers to administrators. Ollama remains bound to Windows loopback and Tailscale Serve continues to publish only Open WebUI.
+
 ## Requirements
 
 - macOS with `/bin/bash`, `/usr/bin/python3`, `/usr/bin/curl`, and `/usr/bin/open`.
