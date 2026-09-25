@@ -1,6 +1,6 @@
 # Windows status
 
-Last updated: 2026-09-12
+Last updated: 2026-09-24
 Owner: Windows
 Lifecycle: `POST_REBOOT_VERIFIED`
 Overall state: `PRODUCTION_MODELS_READY`; the three approved models are installed and tested, and the authenticated browser UI is available through private HTTPS. Raw model APIs remain intentionally unexposed.
@@ -16,10 +16,16 @@ Overall state: `PRODUCTION_MODELS_READY`; the three approved models are installe
 - The old Docker engine data was purged under the explicit Docker-only authorization. No unrelated files, repositories, credentials, or WSL distributions were deleted.
 - Tailscale 1.102.3 is connected, its private HTTPS Serve route is verified for the authenticated browser UI, and Funnel is disabled. Private device and network values are intentionally omitted.
 - The native runtime and Docker-backed browser UI are verified locally. Both listeners remain restricted to Windows loopback.
-- The installed production set is `qwen3.8:27b-q4_K_M`, `qwen2.5-coder:14b-base-q4_K_M`, and `hf.co/windowsxp811203/Qwen3.8-27B-Abliterated-GGUF:Q4_K_M`.
+- The installed production set uses the role-based aliases `coding-vision-tools:latest`, `code-autocomplete-fim:latest`, and `uncensored-vision-tools:latest`. Immutable source identifiers remain in the public manifest.
 
 ## Completed
 
+- Tuned and verified llama.cpp b10903 with CUDA 12.4 and FlashAttention, delivering a verified **100,000-token context ceiling** on the RTX 3090 24GB for unsloth-Qwen-3.8 (Qwen3.8-27B-UD-Q4_K_XL.gguf + mmproj-BF16.gguf).
+- Solved the CUDA illegal memory access crash that previously capped Ollama context at 16K: tuned micro-batching to -b 2048 -ub 1024 with q8_0 KV cache, ensuring full GPU residency with 0 WDDM shared memory paging and 0 WHEA events.
+- Enabled Multi-Token Prediction (MTP) draft speculative decoding (--spec-type draft-mtp --spec-draft-n-max 3), achieving 60.9-82.7 tok/s at short/medium contexts and 34.9-41.4 tok/s at 100K context (up to ~97% generation speedup) with 55%-94% draft token acceptance.
+- Tuned recurrent state checkpoints (--ctx-checkpoints 32) and 8 GB host RAM prompt caching (--cache-ram 8192 --cache-idle-slots) for multi-turn prefix reuse prefill speeds up to 1,306.8 tok/s.
+- Created sanitized supervisor (Start-LlamaCppSupervisor.ps1), WSL bridge (Start-OpenClawLlamaBridge.ps1), and repeatable harness (Measure-LlamaCppInference.ps1) under platform/windows/llamacpp/.
+- Published comprehensive RTX 3090 100K MTP benchmark report at platform/windows/benchmarks/rtx3090-llamacpp-tuning.md.
 - Completed the user-controlled firmware work. Windows now reports firmware virtualization enabled, an active hypervisor, 32 GiB across two 3600 MT/s modules, and no WHEA event since boot. No additional firmware reboot is required by this phase.
 - Started Docker Desktop after quarantining two small Docker-only local metadata directories containing stale socket files. The quarantine is recoverable; no unrelated data, source repository, credential, virtual disk, or WSL distribution was touched.
 - Verified Docker client and Linux engine 29.7.2, overlay storage, and a clean initial inventory. Docker created both managed VHDX files below the approved regular-storage data root, with no active legacy Docker VHDX under the vendor local-application-data directory.
@@ -35,6 +41,7 @@ Overall state: `PRODUCTION_MODELS_READY`; the three approved models are installe
 - Benchmarked cold/warm inference, real 8K and 16K context fills, full GPU residency, controlled 48-of-65-layer RAM offload, Docker coexistence, RAM headroom, pagefile behavior, and thermal/event-log health. The repeatable harness and sanitized results are published under `platform/windows/ollama` and `platform/windows/benchmarks`.
 - Established 16K as the tested production-safe ceiling for both 27B models on Ollama 0.33.3. Both 32K attempts faulted their isolated model runner with a CUDA illegal-memory-access error; Ollama recovered, Docker/Open WebUI stayed healthy, and no WHEA or display-driver event appeared.
 - Recovered Docker Desktop from recurring stale Unix-socket metadata without a factory reset. Only Docker runtime socket directories were moved aside intact; the engine, existing container, persistent Open WebUI data, and authenticated state all returned healthy.
+- Replaced the three opaque source tags with storage-neutral role-based aliases after verifying identical manifest digests and successful inference through every alias. Open WebUI discovers all three names; shared model weights were preserved without another download.
 - Read-only hardware, storage, pagefile, runtime, and network audit.
 - Confirmed that the two storage roots reside on different physical devices.
 - Created the approved managed directory layout and passed cap, reserve, containment, and separate-disk preflight checks.
@@ -68,9 +75,9 @@ These are deployment-smoke measurements for a small model, not production coding
 
 | Role | Model | Recommended context | Warm generation | Result |
 |---|---|---:|---:|---|
-| General coding, tools, vision | `qwen3.8:27b-q4_K_M` | 8K routine, 16K ceiling | 41.0 tok/s | `READY` |
-| FIM autocomplete | `qwen2.5-coder:14b-base-q4_K_M` | 8K tested | 68.3 tok/s | `READY` |
-| Abliterated chat, tools, vision | `hf.co/windowsxp811203/Qwen3.8-27B-Abliterated-GGUF:Q4_K_M` | 8K routine, 16K ceiling | 38.8 tok/s | `READY` |
+| General coding, tools, vision | `coding-vision-tools:latest` | 8K routine, 16K ceiling | 41.0 tok/s | `READY` |
+| FIM autocomplete | `code-autocomplete-fim:latest` | 8K tested | 68.3 tok/s | `READY` |
+| Abliterated chat, tools, vision | `uncensored-vision-tools:latest` | 8K routine, 16K ceiling | 38.8 tok/s | `READY` |
 
 The standard Qwen3.8 first uncached model read took 30.06 seconds; later OS-cached cold loads were 11.35-12.44 seconds. Full-GPU 16K remained pagefile-independent. Controlled offload passed at 16K but slowed warm generation to 6.4 tok/s at 8K and did not establish a higher safe context, so it is not the default. See `platform/windows/benchmarks/rtx3090-production-models.md` for the full sanitized matrix.
 

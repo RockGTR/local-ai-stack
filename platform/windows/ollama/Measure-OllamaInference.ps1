@@ -4,6 +4,9 @@ param(
     [ValidateNotNullOrEmpty()]
     [string]$Model,
 
+    [ValidatePattern('^http://127\.0\.0\.1:[0-9]{1,5}/$')]
+    [string]$BaseUri = 'http://127.0.0.1:11434/',
+
     [Parameter(Mandatory)]
     [ValidateSet('chat', 'generate', 'fim')]
     [string]$Mode,
@@ -28,6 +31,9 @@ param(
 
     [ValidateRange(-1, 512)]
     [Int32]$NumGpuLayers = -1,
+
+    [ValidateRange(1, 4096)]
+    [Int32]$NumBatch = 512,
 
     [ValidatePattern('^(?:-1|0|[1-9][0-9]*(?:ms|s|m|h))$')]
     [string]$KeepAlive = '5m',
@@ -55,8 +61,64 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$baseUri = [Uri]'http://127.0.0.1:11434/'
+$serviceUri = [Uri]$BaseUri
+if ($serviceUri.Port -lt 1 -or $serviceUri.Port -gt 65535) {
+    throw 'BaseUri must use a valid loopback TCP port.'
+}
 $nvidiaSmi = Get-Command 'nvidia-smi.exe' -ErrorAction Stop
+
+if ($null -eq ('LocalAiNativeMemory' -as [Type])) {
+    Add-Type -TypeDefinition @'
+using System;
+using System.ComponentModel;
+using System.Runtime.InteropServices;
+
+public static class LocalAiNativeMemory
+{
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
+    public class MemoryStatusEx
+    {
+        public uint Length = (uint)Marshal.SizeOf(typeof(MemoryStatusEx));
+        public uint MemoryLoad;
+        public ulong TotalPhysical;
+        public ulong AvailablePhysical;
+        public ulong TotalPageFile;
+        public ulong AvailablePageFile;
+        public ulong TotalVirtual;
+        public ulong AvailableVirtual;
+        public ulong AvailableExtendedVirtual;
+    }
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool GlobalMemoryStatusEx([In, Out] MemoryStatusEx buffer);
+
+    public static MemoryStatusEx Read()
+    {
+        var status = new MemoryStatusEx();
+        if (!GlobalMemoryStatusEx(status))
+        {
+            throw new Win32Exception();
+        }
+        return status;
+    }
+}
+'@
+}
+
+$pageFileUsageCounter = $null
+$pageFilePeakCounter = $null
+try {
+    $pageFileUsageCounter = [Diagnostics.PerformanceCounter]::new('Paging File', '% Usage', '_Total', $true)
+    $pageFilePeakCounter = [Diagnostics.PerformanceCounter]::new('Paging File', '% Usage Peak', '_Total', $true)
+    [void]$pageFileUsageCounter.NextValue()
+    [void]$pageFilePeakCounter.NextValue()
+}
+catch {
+    if ($null -ne $pageFileUsageCounter) { $pageFileUsageCounter.Dispose() }
+    if ($null -ne $pageFilePeakCounter) { $pageFilePeakCounter.Dispose() }
+    $pageFileUsageCounter = $null
+    $pageFilePeakCounter = $null
+}
 
 function Convert-NanosecondsToMilliseconds {
     param([object]$Value)
@@ -82,8 +144,30 @@ function Get-TextSha256 {
 }
 
 function Get-SystemSample {
-    $operatingSystem = Get-CimInstance Win32_OperatingSystem -ErrorAction Stop
-    $pageFiles = @(Get-CimInstance Win32_PageFileUsage -ErrorAction Stop)
+    $availableRamBytes = $null
+    $pageFileCurrentMiB = $null
+    $pageFilePeakMiB = $null
+    try {
+        $operatingSystem = Get-CimInstance Win32_OperatingSystem -ErrorAction Stop
+        $pageFiles = @(Get-CimInstance Win32_PageFileUsage -ErrorAction Stop)
+        $availableRamBytes = [Int64]$operatingSystem.FreePhysicalMemory * 1024
+        $pageFileCurrentMiB = [Int64](($pageFiles | Measure-Object CurrentUsage -Sum).Sum)
+        $pageFilePeakMiB = [Int64](($pageFiles | Measure-Object PeakUsage -Sum).Sum)
+    }
+    catch {
+        $nativeMemory = [LocalAiNativeMemory]::Read()
+        $availableRamBytes = [Int64]$nativeMemory.AvailablePhysical
+    }
+
+    $pageFileUsagePct = if ($null -ne $pageFileUsageCounter) {
+        [Math]::Round([double]$pageFileUsageCounter.NextValue(), 4)
+    }
+    else { $null }
+    $pageFilePeakUsagePct = if ($null -ne $pageFilePeakCounter) {
+        [Math]::Round([double]$pageFilePeakCounter.NextValue(), 4)
+    }
+    else { $null }
+
     $gpuFields = @(& $nvidiaSmi.Source `
         '--query-gpu=memory.used,memory.total,utilization.gpu,power.draw,temperature.gpu' `
         '--format=csv,noheader,nounits' 2>$null)
@@ -97,14 +181,16 @@ function Get-SystemSample {
 
     [pscustomobject]@{
         CapturedAtUtc       = [DateTime]::UtcNow.ToString('o')
-        AvailableRamBytes   = [Int64]$operatingSystem.FreePhysicalMemory * 1024
+        AvailableRamBytes   = $availableRamBytes
         GpuMemoryUsedMiB    = [Int32]$gpu[0]
         GpuMemoryTotalMiB   = [Int32]$gpu[1]
         GpuUtilizationPct   = [Int32]$gpu[2]
         GpuPowerWatts       = [double]$gpu[3]
         GpuTemperatureC     = [Int32]$gpu[4]
-        PageFileCurrentMiB  = [Int64](($pageFiles | Measure-Object CurrentUsage -Sum).Sum)
-        PageFilePeakMiB     = [Int64](($pageFiles | Measure-Object PeakUsage -Sum).Sum)
+        PageFileCurrentMiB  = $pageFileCurrentMiB
+        PageFilePeakMiB     = $pageFilePeakMiB
+        PageFileUsagePct    = $pageFileUsagePct
+        PageFilePeakUsagePct = $pageFilePeakUsagePct
     }
 }
 
@@ -160,7 +246,7 @@ Add-Type -AssemblyName System.Net.Http -ErrorAction Stop
 $handler = [Net.Http.HttpClientHandler]::new()
 $handler.UseProxy = $false
 $client = [Net.Http.HttpClient]::new($handler)
-$client.BaseAddress = $baseUri
+$client.BaseAddress = $serviceUri
 $client.Timeout = [TimeSpan]::FromSeconds($TimeoutSeconds)
 
 try {
@@ -187,10 +273,12 @@ try {
 
     $options = @{
         num_ctx     = $ContextLength
+        num_batch   = $NumBatch
         num_predict = $PredictTokens
         temperature = $Temperature
         seed        = $Seed
     }
+    $options.num_batch = $NumBatch
     if ($NumGpuLayers -ge 0) {
         $options.num_gpu = $NumGpuLayers
     }
@@ -253,11 +341,13 @@ try {
         SchemaVersion                = 1
         CheckedAtUtc                 = [DateTime]::UtcNow.ToString('o')
         Model                        = $Model
+        EndpointPort                 = $serviceUri.Port
         Mode                         = $Mode
         ColdStartRequested           = [bool]$ColdStart
         ContextLength                = $ContextLength
         PredictTokensRequested       = $PredictTokens
         NumGpuLayersRequested        = if ($NumGpuLayers -ge 0) { $NumGpuLayers } else { $null }
+        NumBatchRequested            = $NumBatch
         ImageInput                   = ($null -ne $imageBytes)
         ThinkingDisabled             = [bool]$DisableThinking
         Completed                    = [bool]$body.done
@@ -284,6 +374,10 @@ try {
         PageFileCurrentMiBAfter      = $after.PageFileCurrentMiB
         PageFilePeakMiBBefore        = $before.PageFilePeakMiB
         PageFilePeakMiBAfter         = $after.PageFilePeakMiB
+        PageFileUsagePctBefore       = $before.PageFileUsagePct
+        PageFileUsagePctAfter        = $after.PageFileUsagePct
+        PageFilePeakUsagePctBefore   = $before.PageFilePeakUsagePct
+        PageFilePeakUsagePctAfter    = $after.PageFilePeakUsagePct
         SampleCount                  = $samples.Count
     }
 
@@ -301,4 +395,6 @@ try {
 finally {
     $client.Dispose()
     $handler.Dispose()
+    if ($null -ne $pageFileUsageCounter) { $pageFileUsageCounter.Dispose() }
+    if ($null -ne $pageFilePeakCounter) { $pageFilePeakCounter.Dispose() }
 }

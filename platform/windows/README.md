@@ -66,6 +66,26 @@ The installed `0.33.3` help confirms `OLLAMA_NO_CLOUD`; it does not advertise `O
 
 Flash attention and `q8_0` KV cache are enabled in the example because the installed production models passed inference, vision, tool-call, schema, residency, and pagefile checks with that combination. The tested production ceiling for the Qwen3.8 27B models is 16K; do not infer the advertised 262K limit is usable. A successful runtime health check still reports `Ready = false`; readiness requires a small inference.
 
+
+## llama.cpp High-Context Runtime
+
+`Start-LlamaCppSupervisor.ps1` provides a persistent, self-healing supervisor loop for `llama-server.exe` on loopback port `11500`. It serves the dynamic quantized `unsloth-Qwen-3.8` (27.3B) model at a verified **100,000-token context ceiling** with:
+- Multi-Token Prediction (MTP) draft speculative decoding (`--spec-type draft-mtp --spec-draft-n-max 3 --spec-draft-type-k q8_0 --spec-draft-type-v q8_0`), doubling decode throughput.
+- Micro-batching (`-b 2048 -ub 1024`) and Flash Attention with FP8 KV cache (`-ctk q8_0 -ctv q8_0`), completely resolving earlier CUDA illegal-memory-access faults.
+- Recurrent state checkpoints (`--ctx-checkpoints 32`) and 8 GB host RAM prompt caching (`--cache-ram 8192 --cache-idle-slots`).
+- Constrained internal bridging via `Start-OpenClawLlamaBridge.ps1` allowing Docker containers (Open WebUI, n8n) to reach the loopback server through port `11501`.
+
+Run a quick repeatable benchmark:
+
+`powershell
+& .\platform\windows\llamacpp\Measure-LlamaCppInference.ps1 
+    -Model 'unsloth-Qwen-3.8' 
+    -Prompt 'Analyze architecture' 
+    -PredictTokens 64
+`
+
+See [enchmarks/rtx3090-llamacpp-tuning.md](benchmarks/rtx3090-llamacpp-tuning.md) for the complete 100K context and MTP scaling matrix.
+
 ## Open WebUI
 
 The Compose template publishes container port 8080 exclusively as `127.0.0.1:3000`, mounts no Docker socket, requires an external secret, and bind-mounts all persistent application data from `OPEN_WEBUI_DATA` below the regular root. `OPEN_WEBUI_OLLAMA_BASE_URL` is a post-reboot bridge candidate, not a readiness claim: a Docker container normally cannot reach a Windows service that listens only on host loopback through `host.docker.internal`. Do not widen Ollama to `0.0.0.0`. Discover and test a bridge constrained to Docker's internal path, confirm that no LAN/public listener appears, and complete a small UI inference before declaring the UI ready.

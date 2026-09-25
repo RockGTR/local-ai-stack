@@ -1,6 +1,6 @@
 # Windows-to-Mac handoff
 
-Last updated: 2026-09-12
+Last updated: 2026-09-24
 Owner: Windows
 Stage: `PRODUCTION_MODELS_READY`
 
@@ -10,9 +10,11 @@ The user-controlled firmware work is complete. Windows reports virtualization en
 
 Ollama 0.33.3 remains Windows-loopback-only. The approved production set is installed and ready:
 
-- `qwen3.8:27b-q4_K_M` for general coding, agentic chat, tools, structured output, and vision.
-- `qwen2.5-coder:14b-base-q4_K_M` for fill-in-the-middle autocomplete and legacy completions.
-- `hf.co/windowsxp811203/Qwen3.8-27B-Abliterated-GGUF:Q4_K_M` for the requested abliterated chat/tools/vision role.
+- `coding-vision-tools:latest` for general coding, agentic chat, tools, structured output, and vision.
+- `code-autocomplete-fim:latest` for fill-in-the-middle autocomplete and legacy completions.
+- `uncensored-vision-tools:latest` for the requested abliterated chat/tools/vision role.
+
+These are verified, storage-neutral aliases of the immutable source artifacts recorded in `platform/windows/models/production-models.public.yaml`. Open WebUI discovers all three aliases through its internal host bridge.
 
 Both 27B builds are fully GPU-resident through a verified 16K context and fail at 32K with the same isolated CUDA illegal-memory-access runner fault. Use 8K routinely and treat 16K as the hard production ceiling on the tested runtime. Warm generation is approximately 41.0 tok/s for standard Qwen3.8, 38.8 tok/s for the abliterated build, and 68.3 tok/s for 14B FIM completion. Controlled RAM offload passed at 16K but is roughly 6x slower for generation and did not yield a higher verified context.
 
@@ -20,12 +22,22 @@ Docker Desktop 4.89.0 is operational with its WSL data disks below managed regul
 
 During model benchmarking, Docker Desktop encountered stale runtime Unix sockets after a controlled stop. Only the Docker-owned socket directories were moved aside intact. Docker, its WSL engine, the existing Open WebUI container, its health endpoint, and persistent authenticated state are healthy again; no factory reset occurred.
 
+
+### High-Context llama.cpp Runtime (100K Context + MTP)
+
+Windows has deployed and benchmarked a tuned llama.cpp sidecar runtime serving unsloth-Qwen-3.8 (27.3B) with:
+- **100,000-token verified stable context ceiling** fully GPU-resident on the RTX 3090 24GB.
+- **Multi-Token Prediction (MTP) Speculative Decoding**: generation speeds up to 82.7 tok/s at 4K context and 35–41 tok/s at 100K context (draft acceptance 55%–94%).
+- Host RAM prompt caching (8 GB) and recurrent checkpoints (--ctx-checkpoints 32).
+- Open WebUI discovers unsloth-Qwen-3.8 through the internal bridge. Mac clients can select unsloth-Qwen-3.8 in Open WebUI or via the authenticated Tailscale model API.
+- See [platform/windows/benchmarks/rtx3090-llamacpp-tuning.md](../platform/windows/benchmarks/rtx3090-llamacpp-tuning.md) for full benchmark details.
+
 ## What the Mac can do now
 
 1. Pull the repository and read `AGENTS.md`, `state/windows/STATUS.md`, `docs/architecture.md`, and the two public contracts.
 2. Prepare client configuration using placeholders only; keep populated values outside Git.
 3. Read `platform/windows/models/production-models.public.yaml` and `platform/windows/benchmarks/rtx3090-production-models.md`; these supersede the proposal-only language in the older candidate comparison for the Windows installed inventory.
-4. Use `qwen3.8:27b-q4_K_M` as the default interactive model, `qwen2.5-coder:14b-base-q4_K_M` only for FIM/autocomplete, and the exact `hf.co/...:Q4_K_M` identifier when the abliterated variant is intentionally selected.
+4. Use `coding-vision-tools:latest` as the default interactive model, `code-autocomplete-fim:latest` only for FIM/autocomplete, and `uncensored-vision-tools:latest` when the abliterated variant is intentionally selected.
 5. Configure 8K as the routine client context and never request more than 16K from either 27B model until Windows publishes a newer verified ceiling. Keep `reasoning_effort: "none"` available for concise OpenAI-compatible Qwen3.8 calls.
 6. Review shared contract work in Issue #1, Windows progress in Issue #2, and production-model evidence in Issue #3.
 7. Obtain the populated `<WINDOWS_CHAT_URL>` through the private out-of-band bundle, sign in with the existing Open WebUI account, and test each intended model through authenticated browser chat. The public repository deliberately contains only the placeholder.

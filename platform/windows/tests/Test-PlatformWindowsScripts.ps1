@@ -149,11 +149,16 @@ foreach ($requiredDockerCheck in @(
 
 $ollamaBenchmarkText = Get-Content -LiteralPath $ollamaBenchmarkPath -Raw
 Assert-LocalAiTest `
-    -Condition ($ollamaBenchmarkText -match '\$baseUri\s*=\s*\[Uri\]''http://127\.0\.0\.1:11434/''') `
+    -Condition ($ollamaBenchmarkText -match '\$BaseUri\s*=\s*''http://127\.0\.0\.1:11434/''' -and
+        $ollamaBenchmarkText -match '\$serviceUri\s*=\s*\[Uri\]\$BaseUri') `
     -Code 'OLLAMA_BENCHMARK_NOT_LOOPBACK_ONLY'
 Assert-LocalAiTest `
     -Condition ($ollamaBenchmarkText -match '\$MinimumAvailableRamBytes\s*=\s*8000000000') `
     -Code 'OLLAMA_BENCHMARK_RAM_FLOOR_MISSING'
+Assert-LocalAiTest `
+    -Condition ($ollamaBenchmarkText -match 'LocalAiNativeMemory' -and
+        $ollamaBenchmarkText -match 'PageFileUsagePct') `
+    -Code 'OLLAMA_BENCHMARK_RESTRICTED_TELEMETRY_FALLBACK_MISSING'
 Assert-LocalAiTest `
     -Condition ($ollamaBenchmarkText -match 'FullyGpuResident' -and
         $ollamaBenchmarkText -match 'RequireFullGpu') `
@@ -162,16 +167,29 @@ Assert-LocalAiTest `
     -Condition ($ollamaBenchmarkText -match '\$NumGpuLayers' -and
         $ollamaBenchmarkText -match 'options\.num_gpu') `
     -Code 'OLLAMA_BENCHMARK_OFFLOAD_CONTROL_MISSING'
+Assert-LocalAiTest `
+    -Condition ($ollamaBenchmarkText -match '\$NumBatch\s*=\s*512' -and
+        $ollamaBenchmarkText -match 'options\.num_batch') `
+    -Code 'OLLAMA_BENCHMARK_BATCH_CONTROL_MISSING'
 
 $productionModelManifestText = Get-Content -LiteralPath $productionModelManifestPath -Raw
 foreach ($productionIdentifier in @(
+    'coding-vision-tools:latest'
+    'code-autocomplete-fim:latest'
+    'uncensored-vision-tools:latest'
+)) {
+    Assert-LocalAiTest `
+        -Condition ($productionModelManifestText.Contains("identifier: $productionIdentifier")) `
+        -Code "PRODUCTION_MODEL_IDENTIFIER_MISSING_$productionIdentifier"
+}
+foreach ($sourceIdentifier in @(
     'qwen3.8:27b-q4_K_M'
     'qwen2.5-coder:14b-base-q4_K_M'
     'hf.co/windowsxp811203/Qwen3.8-27B-Abliterated-GGUF:Q4_K_M'
 )) {
     Assert-LocalAiTest `
-        -Condition ($productionModelManifestText.Contains("identifier: $productionIdentifier")) `
-        -Code "PRODUCTION_MODEL_IDENTIFIER_MISSING_$productionIdentifier"
+        -Condition ($productionModelManifestText.Contains("source_identifier: $sourceIdentifier")) `
+        -Code "PRODUCTION_MODEL_SOURCE_IDENTIFIER_MISSING_$sourceIdentifier"
 }
 Assert-LocalAiTest `
     -Condition ($productionModelManifestText -match 'verified_gpu_only_context_tokens:\s+16384') `

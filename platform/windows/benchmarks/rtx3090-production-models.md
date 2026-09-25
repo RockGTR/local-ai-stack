@@ -6,6 +6,11 @@ Host class: RTX 3090 24 GB, Ryzen 9 5900X, 32 GB DDR4-3600
 
 The repeatable harness is `platform/windows/ollama/Measure-OllamaInference.ps1`. It binds only to the loopback Ollama API, records no prompt or response text, enforces an 8 GB available-RAM floor, samples GPU/RAM/pagefile telemetry, and can require complete GPU residency. Private raw JSON measurements remain outside Git.
 
+Browser and client model names are coding-vision-tools:latest, code-autocomplete-fim:latest, and uncensored-vision-tools:latest. They are storage-neutral aliases of the exact source artifacts in the public model manifest.
+
+> [!NOTE]
+> **High-Context Update (2026-09-24)**: The 16K context limit under Ollama 0.33.3 has been superseded by the tuned llama.cpp runtime serving unsloth-Qwen-3.8, which achieves a verified **100,000-token context ceiling** with Multi-Token Prediction (MTP) speculative decoding on this exact RTX 3090 host. See [`rtx3090-llamacpp-tuning.md`](rtx3090-llamacpp-tuning.md) for the 100K benchmark results.
+
 ## Recommended production settings
 
 - Keep `OLLAMA_MAX_LOADED_MODELS=1` and `OLLAMA_NUM_PARALLEL=1`.
